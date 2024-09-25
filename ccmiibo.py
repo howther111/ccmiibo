@@ -132,6 +132,16 @@ while True:
                 #button.click()
 
                 randomNum = random.randint(1, 100)
+
+                if "強制応答" in text:
+                    randomNum = 0
+                elif "応答不要" in text:
+                    randomNum = 100
+                elif "mustreply" in text:
+                    randomNum = 0
+                elif "noreply" in text:
+                    randomNum = 100
+
                 if randomNum <= comment_rate:
                     time.sleep(10)
 
@@ -147,7 +157,7 @@ while True:
 
                         # 最後の <p> タグのテキストを取得
                         if p_elements:
-                            last_p_text = "「" + p_elements[-1].text + "」※AI"
+                            last_p_text = "「" + p_elements[-1].text + "」"
                             print("最後の <p> タグ内のテキスト:", last_p_text)
 
                             # 1. placeholderが「メッセージを入力」となっている<textarea>を取得
