@@ -135,12 +135,12 @@ while True:
 
                 if "強制応答" in text:
                     randomNum = 0
-                elif "応答不要" in text:
-                    randomNum = 100
+                elif "応答なし" in text:
+                    randomNum = 101
                 elif "mustreply" in text:
                     randomNum = 0
                 elif "noreply" in text:
-                    randomNum = 100
+                    randomNum = 101
 
                 if randomNum <= comment_rate:
                     time.sleep(10)
