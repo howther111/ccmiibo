@@ -24,12 +24,7 @@ with open('miibo_url.txt', 'r', encoding='utf-8') as file:
 # 読み込んだデータを表示
 print(miibo_url)
 
-with open('comment_rate.txt', 'r', encoding='utf-8') as file:
-    # ファイルの内容をすべて読み込む
-    comment_rate = int(file.read())
-
-# 読み込んだデータを表示
-print(comment_rate)
+comment_rate = 0
 
 # ChromeDriverのパスを指定 (自身の環境に合わせてパスを変更)
 chrome_driver_path = ''
@@ -89,6 +84,22 @@ while True:
 
     if timecount == startcount:
         try:
+            # miiboキャラクター名を取得
+            driver_mi.switch_to.frame(driver_mi.find_element(By.TAG_NAME, "iframe"))
+
+            # クラス名が'card-body'の<div>要素を取得します
+            card_body = driver_mi.find_element(By.CLASS_NAME, 'card-body')
+
+            # <div class="card-body">の中にある<h5>タグを取得します
+            h5_element = card_body.find_element(By.TAG_NAME, 'h5')
+
+            # h5タグのテキストを抽出します
+            character_name = h5_element.text
+            charaouto = character_name + "応答"
+
+            # もとのコンテンツに戻る
+            driver_mi.switch_to.default_content()
+
             close_button = driver_cc.find_element(By.XPATH, '//button[text()="閉じる"]')
             close_button.click()
             print("ボタンをクリックしました。")
@@ -114,22 +125,31 @@ while True:
                 ai_comment_flg = False
 
             if not text == before_text and start_flg == False and ai_comment_flg == False:
+                newtext = text.replace("強制応答", "")
+                newtext = newtext.replace("応答なし", "")
+                newtext = newtext.replace("mustreply", "")
+                newtext = newtext.replace("noreply", "")
+                newtext = newtext.replace(charaouto, "")
+                newtext = newtext.replace("カッコなし", "")
+                kakkoflg = True
+
                 # iframeに切り替え
                 driver_mi.switch_to.frame(driver_mi.find_element(By.TAG_NAME, "iframe"))
 
                 textarea = driver_mi.find_element(By.ID, 'chat-id-2-input')
 
                 # 変数 text の値を textarea に入力
-                textarea.send_keys(text)
+                textarea.send_keys(newtext)
 
                 # Enterキーを押下
                 textarea.send_keys(Keys.ENTER)
 
-                # クラス名が 'btn-primary' のボタンを取得
-                #button = driver_mi.find_element(By.CLASS_NAME, 'btn-primary')
+                with open('comment_rate.txt', 'r', encoding='utf-8') as file:
+                    # ファイルの内容をすべて読み込む
+                    comment_rate = int(file.read())
 
-                # ボタンをクリック
-                #button.click()
+                # 読み込んだデータを表示
+                print(comment_rate)
 
                 randomNum = random.randint(1, 100)
 
@@ -141,6 +161,11 @@ while True:
                     randomNum = 0
                 elif "noreply" in text:
                     randomNum = 101
+                elif charaouto in text:
+                    randomNum = 0
+
+                if "カッコなし" in text:
+                    kakkoflg = False
 
                 if randomNum <= comment_rate:
                     time.sleep(10)
@@ -157,7 +182,12 @@ while True:
 
                         # 最後の <p> タグのテキストを取得
                         if p_elements:
-                            last_p_text = "「" + p_elements[-1].text + "」"
+                            last_p_text = ""
+                            if kakkoflg:
+                                last_p_text = "「" + p_elements[-1].text + "」"
+                            else:
+                                last_p_text = p_elements[-1].text
+
                             print("最後の <p> タグ内のテキスト:", last_p_text)
 
                             # 1. placeholderが「メッセージを入力」となっている<textarea>を取得
