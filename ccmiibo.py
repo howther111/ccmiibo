@@ -124,6 +124,8 @@ while True:
             if text == before_text:
                 ai_comment_flg = False
 
+            blankFlg = True
+
             if not text == before_text and start_flg == False and ai_comment_flg == False:
                 newtext = text.replace("強制応答", "")
                 newtext = newtext.replace("応答なし", "")
@@ -131,6 +133,7 @@ while True:
                 newtext = newtext.replace("noreply", "")
                 newtext = newtext.replace(charaouto, "")
                 newtext = newtext.replace("カッコなし", "")
+                newtext = newtext.replace("カッコ無し", "")
                 kakkoflg = True
 
                 # iframeに切り替え
@@ -164,10 +167,13 @@ while True:
                 elif charaouto in text:
                     randomNum = 0
 
-                if "カッコなし" in text:
+                if "カッコなし" in text or "カッコ無し" in text:
                     kakkoflg = False
 
-                if randomNum <= comment_rate:
+                if "回答なし" == text or "回答無し" == text or "…" == text:
+                    blankFlg = True
+
+                if randomNum <= comment_rate and not blankFlg:
                     time.sleep(10)
 
                     # 'message-content' クラスを持つ全ての <div> 要素を取得
