@@ -124,8 +124,6 @@ while True:
             if text == before_text:
                 ai_comment_flg = False
 
-            blankFlg = True
-
             if not text == before_text and start_flg == False and ai_comment_flg == False:
                 newtext = text.replace("強制応答", "")
                 newtext = newtext.replace("応答なし", "")
@@ -170,10 +168,7 @@ while True:
                 if "カッコなし" in text or "カッコ無し" in text:
                     kakkoflg = False
 
-                if "回答なし" == text or "回答無し" == text or "…" == text:
-                    blankFlg = True
-
-                if randomNum <= comment_rate and not blankFlg:
+                if randomNum <= comment_rate:
                     time.sleep(10)
 
                     # 'message-content' クラスを持つ全ての <div> 要素を取得
@@ -189,28 +184,36 @@ while True:
                         # 最後の <p> タグのテキストを取得
                         if p_elements:
                             last_p_text = ""
+                            blankFlg = False
+
                             if kakkoflg:
                                 last_p_text = "「" + p_elements[-1].text + "」"
                             else:
                                 last_p_text = p_elements[-1].text
 
+                            if "回答なし" == p_elements[-1].text or "回答無し" == p_elements[-1].text or "…" == p_elements[-1].text:
+                                blankFlg = True
+
                             print("最後の <p> タグ内のテキスト:", last_p_text)
 
-                            # 1. placeholderが「メッセージを入力」となっている<textarea>を取得
-                            textarea_cc = driver_cc.find_element(By.XPATH, '//textarea[@placeholder="メッセージを入力"]')
+                            if not blankFlg:
+                                # 1. placeholderが「メッセージを入力」となっている<textarea>を取得
+                                textarea_cc = driver_cc.find_element(By.XPATH,
+                                                                     '//textarea[@placeholder="メッセージを入力"]')
 
-                            # 2. last_p_textの値を<textarea>に入力
-                            textarea_cc.send_keys(last_p_text)
+                                # 2. last_p_textの値を<textarea>に入力
+                                textarea_cc.send_keys(last_p_text)
 
-                            # 3. テキストが「送信」となっているsubmitボタンを取得
-                            submit_button = driver_cc.find_element(By.XPATH, '//button[text()="送信"]')
+                                # 3. テキストが「送信」となっているsubmitボタンを取得
+                                submit_button = driver_cc.find_element(By.XPATH, '//button[text()="送信"]')
 
-                            # 4. submitボタンをクリックしてメッセージを送信
-                            submit_button.click()
+                                # 4. submitボタンをクリックしてメッセージを送信
+                                submit_button.click()
 
-                            ai_comment_flg = True
+                                ai_comment_flg = True
 
-                            before_text = last_p_text
+                                before_text = last_p_text
+
                         else:
                             print("最後の <div> 内に <p> タグが見つかりませんでした。")
                     else:
