@@ -10,6 +10,11 @@ from selenium.webdriver.common.keys import Keys
 import keyboard
 import time
 import re
+import pandas as pd
+import os
+
+def check_file_exists(filepath):
+    return os.path.exists(filepath)
 
 def handle_initiative(input_text):
     match = re.search(r'最高行動値キャラクターは(.+?)です', input_text)
@@ -20,6 +25,15 @@ def handle_initiative(input_text):
 def metaga_gm_response(input_text=""):
     global round_count  # グローバル変数を使用
     print(round_count)
+
+    # CSVファイルの読み込み
+    scenario_flg = False
+    if check_file_exists('scenario.csv'):
+        df = pd.read_csv('scenario.csv')
+        scenario_flg = True
+
+    # データフレームの表示
+    #print(df)
 
     # Respond to the first statement
     if "アクティブ状態" in input_text:
@@ -71,6 +85,17 @@ def metaga_gm_response(input_text=""):
 
     if "命中しました" in input_text:
         return "攻撃側はダメージロールを行ってください。タイミング：ダメージロール直前の特技があれば使用することができます"
+
+    if scenario_flg:
+        start_match = df[df['start_word'].apply(lambda x: x in input_text)]
+        if not start_match.empty:
+            return start_match['text'].values[0]
+
+        match_index = df[df['end_word'].apply(lambda x: x in input_text)].index
+        if not match_index.empty:
+            next_index = match_index[0] + 1
+            if next_index < len(df):
+                return df.loc[next_index, 'text']
 
     # For any input that doesn't match the conditions
     return "…"
