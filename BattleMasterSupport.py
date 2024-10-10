@@ -26,8 +26,8 @@ def handle_initiative(input_text):
 def chara_main(input_text):
     match = re.search(r'(.+?)のメインプロセス開始', input_text)
     if match:
-        character_name = match.group(1).strip()
-        return f"{chara_main}のメインプロセスを開始します。ムーブアクション、マイナーアクション、メジャーアクションを宣言してください。終了したら、『メインプロセス終了』と発言してください"
+        character_name = match.group(0).strip()
+        return f"{character_name}のメインプロセスを開始します。ムーブアクション、マイナーアクション、メジャーアクションを宣言してください。終了したら、『メインプロセス終了』と発言してください"
     return "…"
 
 def metaga_gm_response(input_text=""):
