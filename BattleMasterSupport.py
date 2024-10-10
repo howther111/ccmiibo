@@ -22,9 +22,15 @@ def handle_initiative(input_text):
         character_name = match.group(1).strip()
         return f"{character_name}のメインプロセスを開始します。ムーブアクション、マイナーアクション、メジャーアクションを宣言してください。終了したら、『メインプロセス終了』と発言してください"
     return "…"
+
+def chara_main(input_text):
+    match = re.search(r'(.+?)のメインプロセス開始', input_text)
+    if match:
+        character_name = match.group(1).strip()
+        return f"{chara_main}のメインプロセスを開始します。ムーブアクション、マイナーアクション、メジャーアクションを宣言してください。終了したら、『メインプロセス終了』と発言してください"
+    return "…"
+
 def metaga_gm_response(input_text=""):
-    global round_count  # グローバル変数を使用
-    print(round_count)
 
     # CSVファイルの読み込み
     scenario_flg = False
@@ -61,6 +67,11 @@ def metaga_gm_response(input_text=""):
     if "最高行動値キャラクターは" in input_text:
         return handle_initiative(input_text)
 
+    if "のメインプロセス開始" in input_text:
+        return chara_main(input_text)
+    elif "のメインプロセス開始" in input_text:
+        return "メインプロセスを開始します。ムーブアクション、マイナーアクション、メジャーアクションを宣言してください。終了したら、『メインプロセス終了』と発言してください"
+
     # When "メインプロセス終了" appears
     if "メインプロセス終了" in input_text:
         return "イニシアチブプロセスを開始します。タイミング：イニシアチブプロセスの特技を使用したい場合は使用してください。終了後、最も行動値の高い未行動のキャラクターを確認し、『最高行動値キャラクターは〇〇です』と答えてください。全員が行動を終了している場合、『未行動なしです』と答えてください"
@@ -88,6 +99,18 @@ def metaga_gm_response(input_text=""):
 
     if "命中しました" in input_text:
         return "攻撃側はダメージロールを行ってください。タイミング：ダメージロール直前の特技があれば使用することができます"
+
+    if "セットアッププロセス開始" in input_text:
+        return "セットアッププロセスを開始します。『セットアッププロセス終了』という発言があればプロセスを終了します"
+
+    if "イニシアチブプロセス開始" in input_text:
+        return "イニシアチブプロセスを開始します。タイミング：イニシアチブプロセスの特技を使用したい場合は使用してください。終了後、最も行動値の高い未行動のキャラクターを確認し、『最高行動値キャラクターは〇〇です』と答えてください。全員が行動を終了している場合、『未行動なしです』と答えてください"
+
+    if "メインプロセス開始" in input_text:
+        return "イニシアチブプロセスを開始します。タイミング：イニシアチブプロセスの特技を使用したい場合は使用してください。終了後、最も行動値の高い未行動のキャラクターを確認し、『最高行動値キャラクターは〇〇です』と答えてください。全員が行動を終了している場合、『未行動なしです』と答えてください"
+
+    if "クリンナッププロセス開始" in input_text:
+        return "クリンナッププロセスを開始します。タイミング：クリンナッププロセスの特技を使用したい場合は使用してください。終了後、『クリンナッププロセス終了』と答えてください"
 
     if scenario_flg:
         start_match = df[df['start_word'].apply(lambda x: x in input_text)]
@@ -145,8 +168,7 @@ before_text = ""
 startcount = 5
 ai_comment_flg = False
 kakko_flg = False
-global round_count  # グローバル変数を使用
-round_count = 0
+start_flg = True
 while True:
     if keyboard.is_pressed('esc'):  # Escキーが押されたかどうかをチェック
         print("Escキーが押されました。終了します。")
@@ -203,7 +225,7 @@ while True:
             if text == before_text:
                 ai_comment_flg = False
 
-            if (not text == before_text) and response_flg == True and ai_comment_flg ==False:
+            if (not text == before_text) and response_flg == True and ai_comment_flg == False:
                 print("send process")
                 # 1. placeholderが「メッセージを入力」となっている<textarea>を取得
                 textarea_cc = driver_cc.find_element(By.XPATH,
