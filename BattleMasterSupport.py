@@ -1,4 +1,5 @@
 import random
+import sys
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -43,13 +44,19 @@ def metaga_gm_response(input_text=""):
 
     # Respond to the first statement
     if "アクティブ状態" in input_text:
-        return "こんにちは、メタガGMさんです。メタリックガーディアンRPGの戦闘マスタリングを開始します。『勝利条件：〇〇』という形で勝利条件を提示してください"
+        return "戦闘マスタリングを開始します。『勝利条件：〇〇』という形で勝利条件を提示してください"
 
     if "戦闘マスタリング開始" in input_text:
-        return "こんにちは、メタガGMさんです。メタリックガーディアンRPGの戦闘マスタリングを開始します。『勝利条件：〇〇』という形で勝利条件を提示してください"
+        return "戦闘マスタリングを開始します。『勝利条件：〇〇』という形で勝利条件を提示してください"
 
     if "戦闘マスタリング再開" in input_text:
-        return "こんにちは、メタガGMさんです。メタリックガーディアンRPGの戦闘マスタリングを再開します"
+        return "戦闘マスタリングを再開します"
+
+    if "戦闘マスタリング中断" in input_text:
+        return "戦闘マスタリングを中断し、ソフトウェアを終了します"
+
+    if "戦闘マスタリング終了" in input_text:
+        return "戦闘マスタリングを終了し、ソフトウェアを終了します"
 
     # When "勝利条件：" appears
     if "勝利条件：" in input_text:
@@ -244,10 +251,14 @@ while True:
             # もとのコンテンツに戻る
             before_text = text
 
+            if "戦闘マスタリングを中断" in text or "戦闘マスタリングを終了" in text:
+                driver_cc.quit()
+                sys.exit()
+
         else:
             print("該当する<p>タグが見つかりませんでした。")
 
 # 必要な処理を追加...
 
 # 終了時にブラウザを閉じる
-# driver.quit()
+driver_cc.quit()
