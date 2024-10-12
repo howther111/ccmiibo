@@ -481,8 +481,8 @@ class GuardianData():
         jsontext = {}
         jsontext["kind"] = "character"
         jsontext["data"] = {}
-        jsontext["data"]["name"] = "バトルマスターサポート"
-        jsontext["data"]["memo"] = "バトルマスターサポート操作用の駒です"
+        jsontext["data"]["name"] = "【ソフトウェア用】バトルマスターサポート"
+        jsontext["data"]["memo"] = "バトルマスターサポートソフトウェア操作用の駒です"
         jsontext["data"]["initiative"] = 0
         jsontext["data"]["status"] = []
 
@@ -504,12 +504,12 @@ class GuardianData():
         "\n勝利条件を達成しました\n攻撃します\n回避します\n" \
         "近接攻撃判定\n遠隔攻撃判定\n武器攻撃判定\n魔法攻撃判定\n特技を使用します\n" \
         "命中しました\n回避しました"
-        file_name = self.character_name + "_未装備駒データ.txt"
+        file_name = "bms_pawn.txt"
 
         with open(file_name, 'w', encoding="utf-8") as file:  # 第二引数：writableオプションを指定
             json.dump(jsontext, file)
 
-        print("未装備駒データを生成しました")
+        print("バトルマスターサポート駒データを生成しました")
 
 
 def get_data(value):
