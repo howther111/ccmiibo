@@ -18,18 +18,35 @@ def check_file_exists(filepath):
     return os.path.exists(filepath)
 
 def handle_initiative(input_text):
-    match = re.search(r'最高行動値キャラクター：(.+?)', input_text)
-    if match:
-        character_name = match.group(1).strip()
+    if input_text.startswith("最高行動値キャラクター："):
+        # "最高行動値キャラクター："以降の文字列を取り出す
+        character_name = input_text.replace("最高行動値キャラクター：", "")
+        # メッセージを返す
         return f"{character_name}のメインプロセスを開始します。ムーブアクション、マイナーアクション、メジャーアクションを宣言してください。終了したら、『メインプロセス終了』と発言してください"
-    return "…"
+    else:
+        return "…"
 
 def chara_main(input_text):
     match = re.search(r'(.+?)のメインプロセス開始', input_text)
     if match:
-        character_name = match.group(1).strip()
+        character_name = input_text.replace("のメインプロセス開始", "")
         return f"{character_name}のメインプロセスを開始します。ムーブアクション、マイナーアクション、メジャーアクションを宣言してください。終了したら、『メインプロセス終了』と発言してください"
-    return "…"
+    else:
+        return "…"
+
+def chara_main2(input_text):
+    if input_text.startswith("メインプロセス："):
+        character_name = input_text.replace("メインプロセス：", "")
+        return f"{character_name}のメインプロセスを開始します。ムーブアクション、マイナーアクション、メジャーアクションを宣言してください。終了したら、『メインプロセス終了』と発言してください"
+    else:
+        return "…"
+
+def chara_main3(input_text):
+    if input_text.startswith("メインプロセス開始："):
+        character_name = input_text.replace("メインプロセス開始：", "")
+        return f"{character_name}のメインプロセスを開始します。ムーブアクション、マイナーアクション、メジャーアクションを宣言してください。終了したら、『メインプロセス終了』と発言してください"
+    else:
+        return "…"
 
 def metaga_gm_response(input_text=""):
 
@@ -53,10 +70,13 @@ def metaga_gm_response(input_text=""):
         return "戦闘マスタリングを再開します"
 
     if "戦闘マスタリング中断" in input_text:
-        return "戦闘マスタリングを中断し、ソフトウェアを終了します"
+        return "戦闘マスタリングを中断します。ソフトウェアを手動で終了してください（×ボタンを押下）"
 
     if "戦闘マスタリング終了" in input_text:
-        return "戦闘マスタリングを終了し、ソフトウェアを終了します"
+        return "戦闘マスタリングを終了します。ソフトウェアを手動で終了してください（×ボタンを押下）"
+
+    if "ソフトウェア終了" in input_text:
+        return "ソフトウェアを手動で終了してください（×ボタンを押下）"
 
     # When "勝利条件：" appears
     if "勝利条件：" in input_text:
@@ -76,7 +96,11 @@ def metaga_gm_response(input_text=""):
 
     if "のメインプロセス開始" in input_text:
         return chara_main(input_text)
-    elif "のメインプロセス開始" in input_text:
+    elif "メインプロセス：" in input_text:
+        return chara_main2(input_text)
+    elif "メインプロセス開始：" in input_text:
+        return chara_main3(input_text)
+    elif "メインプロセス開始" in input_text:
         return "メインプロセスを開始します。ムーブアクション、マイナーアクション、メジャーアクションを宣言してください。終了したら、『メインプロセス終了』と発言してください"
 
     # When "メインプロセス終了" appears
@@ -96,7 +120,19 @@ def metaga_gm_response(input_text=""):
         return "戦闘終了です。お疲れ様でした"
 
     if "攻撃します" in input_text:
-        return "攻撃代償の消費後、命中判定を行ってください"
+        return "代償の消費後、命中判定を行ってください"
+
+    if "近接攻撃判定" in input_text:
+        return "近接攻撃の判定を行います。攻撃側がMG+命中値+Xでロール後、防御側がMG+回避値+Xでロールして対決してください。"
+
+    if "遠隔攻撃判定" in input_text:
+        return "遠隔攻撃の判定を行います。攻撃側がMG+砲撃値+Xでロール後、防御側がMG+防壁値+Xでロールして対決してください。"
+
+    if "武器攻撃判定" in input_text:
+        return "武器攻撃の判定を行います。攻撃側がAL+命中値+Xでロール後、防御側がAL+回避値+Xでロールして対決してください。"
+
+    if "魔法攻撃判定" in input_text:
+        return "魔法攻撃の判定を行います。攻撃側がAL+魔導値+Xでロール後、防御側がAL+抗魔値+Xでロールして対決してください。"
 
     if "特技を使用します" in input_text:
         return "代償を消費してください"
@@ -106,6 +142,9 @@ def metaga_gm_response(input_text=""):
 
     if "命中しました" in input_text:
         return "攻撃側はダメージロールを行ってください。タイミング：ダメージロール直前の特技があれば使用することができます"
+
+    if "回避しました" in input_text:
+        return "メインプロセスの終了を宣言してください"
 
     if "セットアッププロセス開始" in input_text:
         return "セットアッププロセスを開始します。『セットアッププロセス終了』という発言があればプロセスを終了します"
@@ -246,10 +285,6 @@ while True:
 
                 # 4. submitボタンをクリックしてメッセージを送信
                 submit_button.click()
-
-                if "戦闘マスタリングを中断" in text or "戦闘マスタリングを終了" in text:
-                    driver_cc.quit()
-                    sys.exit()
 
                 ai_comment_flg = True
             # もとのコンテンツに戻る
