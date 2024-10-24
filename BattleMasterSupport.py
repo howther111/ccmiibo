@@ -56,9 +56,6 @@ def metaga_gm_response(input_text=""):
         df = pd.read_csv('scenario.csv')
         scenario_flg = True
 
-    # データフレームの表示
-    #print(df)
-
     # Respond to the first statement
     if "アクティブ状態" in input_text:
         return "戦闘マスタリングを開始します。『勝利条件：〇〇』という形で勝利条件を提示してください"
@@ -263,6 +260,13 @@ while True:
             text = last_element.text
             response = ""
             response_flg = False
+            # CSVファイルの読み込み
+            add_text = ""
+            if check_file_exists('addtext.txt'):
+                f = open('addtext.txt', 'r', encoding='UTF-8')
+                add_text = f.read()
+                f.close()
+
             if not text == before_text:
                 print("最後の<p>タグ内のテキスト:", text)
                 if kakko_flg:
@@ -284,7 +288,7 @@ while True:
                                                      '//textarea[@placeholder="メッセージを入力"]')
 
                 # 2. last_p_textの値を<textarea>に入力
-                textarea_cc.send_keys(response)
+                textarea_cc.send_keys(response + add_text)
 
                 # 3. テキストが「送信」となっているsubmitボタンを取得
                 submit_button = driver_cc.find_element(By.XPATH, '//button[text()="送信"]')
