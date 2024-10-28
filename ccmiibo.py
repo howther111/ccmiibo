@@ -57,7 +57,7 @@ driver_mi.get(url)
 driver_cc = webdriver.Chrome(service=service, options=chrome_options)
 
 # ウィンドウサイズを指定
-driver_cc.set_window_size(600, 800)
+driver_cc.set_window_size(1000, 800)
 
 # ウィンドウ位置を指定 (x=600, y=0)
 driver_cc.set_window_position(600, 0)
