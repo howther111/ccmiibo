@@ -9,6 +9,10 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 import keyboard
 import time
+import os
+
+def check_file_exists(filepath):
+    return os.path.exists(filepath)
 
 with open('ccforia_url.txt', 'r', encoding='utf-8') as file:
     # ファイルの内容をすべて読み込む
@@ -40,9 +44,9 @@ service = Service(executable_path=chrome_driver_path)
 driver_mi = webdriver.Chrome(service=service, options=chrome_options)
 
 # ウィンドウサイズを指定
-driver_mi.set_window_size(800, 600)
+driver_mi.set_window_size(600, 800)
 
-# ウィンドウ位置を指定 (x=800, y=0)
+# ウィンドウ位置を指定 (x=0, y=0)
 driver_mi.set_window_position(0, 0)
 
 # 指定したURLを開く
@@ -53,10 +57,10 @@ driver_mi.get(url)
 driver_cc = webdriver.Chrome(service=service, options=chrome_options)
 
 # ウィンドウサイズを指定
-driver_cc.set_window_size(800, 600)
+driver_cc.set_window_size(600, 800)
 
-# ウィンドウ位置を指定 (x=800, y=0)
-driver_cc.set_window_position(800, 0)
+# ウィンドウ位置を指定 (x=600, y=0)
+driver_cc.set_window_position(600, 0)
 
 # 指定したURLを開く
 url = ccforia_url
@@ -81,6 +85,8 @@ while True:
     if timecount < startcount:
         timecount = timecount + 1
         print(timecount)
+
+    charaouto = ""
 
     if timecount == startcount:
         try:
@@ -186,10 +192,17 @@ while True:
                             last_p_text = ""
                             blankFlg = False
 
+                            # CSVファイルの読み込み
+                            add_text = ""
+                            if check_file_exists('addtext.txt'):
+                                f = open('addtext.txt', 'r', encoding='UTF-8')
+                                add_text = f.read()
+                                f.close()
+
                             if kakkoflg:
-                                last_p_text = "「" + p_elements[-1].text + "」"
+                                last_p_text = "「" + p_elements[-1].text + "」" + add_text
                             else:
-                                last_p_text = p_elements[-1].text
+                                last_p_text = p_elements[-1].text + add_text
 
                             if "回答なし" == p_elements[-1].text or "回答無し" == p_elements[-1].text or "…" == p_elements[-1].text:
                                 blankFlg = True
