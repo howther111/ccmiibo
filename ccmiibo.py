@@ -130,6 +130,21 @@ while True:
             if text == before_text:
                 ai_comment_flg = False
 
+            # miiboキャラクター名を取得
+            driver_mi.switch_to.frame(driver_mi.find_element(By.TAG_NAME, "iframe"))
+
+            # クラス名が'card-body'の<div>要素を取得します
+            card_body = driver_mi.find_element(By.CLASS_NAME, 'card-body')
+
+            # <div class="card-body">の中にある<h5>タグを取得します
+            h5_element = card_body.find_element(By.TAG_NAME, 'h5')
+
+            # h5タグのテキストを抽出します
+            character_name = h5_element.text
+            charaouto = character_name + "応答"
+
+            driver_mi.switch_to.default_content()
+
             if not text == before_text and start_flg == False and ai_comment_flg == False:
                 newtext = text.replace("強制応答", "")
                 newtext = newtext.replace("応答なし", "")
@@ -170,6 +185,8 @@ while True:
                     randomNum = 101
                 elif charaouto in text:
                     randomNum = 0
+
+                print("randomNum = " + str(randomNum))
 
                 if "カッコなし" in text or "カッコ無し" in text:
                     kakkoflg = False
