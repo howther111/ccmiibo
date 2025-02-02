@@ -255,53 +255,58 @@ while True:
         time.sleep(1)
 
         # 最後の<p>タグを取得し、テキストを抽出
-        if elements:
-            last_element = elements[-1]
-            text = last_element.text
-            response = ""
-            response_flg = False
-            # CSVファイルの読み込み
-            add_text = ""
-            if check_file_exists('addtext.txt'):
-                f = open('addtext.txt', 'r', encoding='UTF-8')
-                add_text = f.read()
-                f.close()
+        try:
+            if elements:
+                last_element = elements[-1]
+                text = last_element.text
+                response = ""
+                response_flg = False
+                # CSVファイルの読み込み
+                add_text = ""
+                if check_file_exists('addtext.txt'):
+                    f = open('addtext.txt', 'r', encoding='UTF-8')
+                    add_text = f.read()
+                    f.close()
 
-            if not text == before_text:
-                print("最後の<p>タグ内のテキスト:", text)
-                if kakko_flg:
-                    response = "「" + metaga_gm_response(text) + "」"
-                else:
-                    response = metaga_gm_response(text)
-                print(response)
+                if not text == before_text:
+                    print("最後の<p>タグ内のテキスト:", text)
+                    if kakko_flg:
+                        response = "「" + metaga_gm_response(text) + "」"
+                    else:
+                        response = metaga_gm_response(text)
+                    print(response)
 
-            if (not response == "…") and (not response == "「…」"):
-                response_flg = True
+                if (not response == "…") and (not response == "「…」"):
+                    response_flg = True
 
-            if text == before_text:
-                ai_comment_flg = False
+                if text == before_text:
+                    ai_comment_flg = False
 
-            if (not text == before_text) and response_flg == True and ai_comment_flg == False:
-                print("send process")
-                # 1. placeholderが「メッセージを入力」となっている<textarea>を取得
-                textarea_cc = driver_cc.find_element(By.XPATH,
-                                                     '//textarea[@placeholder="メッセージを入力"]')
+                if (not text == before_text) and response_flg == True and ai_comment_flg == False:
+                    print("send process")
+                    # 1. placeholderが「メッセージを入力」となっている<textarea>を取得
+                    textarea_cc = driver_cc.find_element(By.XPATH,
+                                                         '//textarea[@placeholder="メッセージを入力"]')
 
-                # 2. last_p_textの値を<textarea>に入力
-                textarea_cc.send_keys(response + add_text)
+                    # 2. last_p_textの値を<textarea>に入力
+                    textarea_cc.send_keys(response + add_text)
 
-                # 3. テキストが「送信」となっているsubmitボタンを取得
-                submit_button = driver_cc.find_element(By.XPATH, '//button[text()="送信"]')
+                    # 3. テキストが「送信」となっているsubmitボタンを取得
+                    submit_button = driver_cc.find_element(By.XPATH, '//button[text()="送信"]')
 
-                # 4. submitボタンをクリックしてメッセージを送信
-                submit_button.click()
+                    # 4. submitボタンをクリックしてメッセージを送信
+                    submit_button.click()
 
-                ai_comment_flg = True
-            # もとのコンテンツに戻る
-            before_text = text
+                    ai_comment_flg = True
+                # もとのコンテンツに戻る
+                before_text = text
 
-        else:
-            print("該当する<p>タグが見つかりませんでした。")
+            else:
+                print("該当する<p>タグが見つかりませんでした。")
+
+        except:
+            print("エラー")
+
 
 # 必要な処理を追加...
 
