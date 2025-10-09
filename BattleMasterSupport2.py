@@ -286,6 +286,7 @@ while True:
                 if (not text == before_text) and response_flg == True and ai_comment_flg == False:
                     print("send process")
                     comment_flg = True
+                    ai_comment_flg = True
                     with open('comment.txt', 'r', encoding='utf-8') as file:
                         # ファイルの内容をすべて読み込む
                         comment_flg = file.read()
@@ -317,10 +318,9 @@ while True:
                         # 現在の日時を取得
                         now = datetime.now()
                         # yyyymmddhhmmss形式にフォーマット
-                        formatted_datetime = "screenshot/" + now.strftime('%Y%m%d%H%M%S') + ".png"
+                        formatted_datetime = "screenshot-" + now.strftime('%Y%m%d%H%M%S') + ".png"
                         driver_cc.save_screenshot(formatted_datetime)
 
-                    ai_comment_flg = True
                 # もとのコンテンツに戻る
                 before_text = text
 
