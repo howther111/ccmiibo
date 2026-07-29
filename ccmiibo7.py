@@ -529,7 +529,12 @@ def determine_random_number(original_text, character_name):
 
     no_reply_words = [
         "応答なし",
-        "noreply",
+        "noreply"
+    ]
+
+    no_reply_words2 = [
+        "アクティブ状態",
+        "非アクティブ状態"
     ]
 
     if any(
@@ -537,6 +542,12 @@ def determine_random_number(original_text, character_name):
         for word in force_reply_words
     ):
         return 0
+
+    if any(
+        word == original_text
+        for word in no_reply_words2
+    ):
+        return 101
 
     if any(
         word in original_text

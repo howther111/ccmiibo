@@ -645,6 +645,8 @@ def should_reply(
         "応答なし" in original_text
         or "noreply" in original_text
         or "#" in original_text
+        or "アクティブ状態" == original_text
+        or "非アクティブ状態" == original_text
     ):
         random_number = 101
 
