@@ -40,6 +40,14 @@ CHECK_INTERVAL_SECONDS = 0.5
 START_WAIT_SECONDS = 3.0
 VOICEVOX_MAX_TEXT_LENGTH = 180
 
+# マイク録音設定
+SPEECH_THRESHOLD = 0.015
+SILENCE_SECONDS = 1.2
+WAITING_TIMEOUT_SECONDS = 30.0
+MAX_RECORDING_SECONDS = 60.0
+PRE_ROLL_SECONDS = 0.3
+AUDIO_BLOCK_SECONDS = 0.05
+
 WINDOW_TITLE = "CcVoice"
 WINDOW_SIZE = "900x700"
 
@@ -297,6 +305,207 @@ def get_default_device_index(kind: str) -> int | None:
     return None
 
 
+
+# ============================================================
+# マイク録音
+# ============================================================
+
+def choose_recording_sample_rate(device_index: int) -> int:
+    """可能なら16kHz、非対応なら機器の既定値を使用する。"""
+    try:
+        sd.check_input_settings(
+            device=device_index,
+            samplerate=16000,
+            channels=1,
+            dtype="float32",
+        )
+        return 16000
+    except Exception:
+        device_info = sd.query_devices(device_index, "input")
+        return int(round(float(device_info["default_samplerate"])))
+
+
+def convert_float_audio_to_wav(
+    audio: np.ndarray,
+    sample_rate: int,
+) -> bytes:
+    audio = np.asarray(audio, dtype=np.float32)
+    audio = np.clip(audio, -1.0, 1.0)
+    pcm16 = (audio * 32767.0).astype(np.int16)
+
+    wav_buffer = io.BytesIO()
+    with wave.open(wav_buffer, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(pcm16.tobytes())
+
+    return wav_buffer.getvalue()
+
+
+def record_until_silence(
+    device_index: int,
+    stop_event: threading.Event,
+    status_callback,
+) -> bytes | None:
+    """
+    音声を検出してから、一定時間無音が続くまで録音する。
+    """
+    sample_rate = choose_recording_sample_rate(device_index)
+    block_size = max(1, int(sample_rate * AUDIO_BLOCK_SECONDS))
+    audio_queue: queue.Queue[np.ndarray] = queue.Queue()
+
+    pre_roll_block_count = max(
+        1,
+        int(PRE_ROLL_SECONDS / AUDIO_BLOCK_SECONDS),
+    )
+
+    from collections import deque
+    pre_roll: deque[np.ndarray] = deque(
+        maxlen=pre_roll_block_count
+    )
+
+    def audio_callback(
+        indata: np.ndarray,
+        frames: int,
+        callback_time: Any,
+        status: sd.CallbackFlags,
+    ) -> None:
+        del frames, callback_time, status
+        audio_queue.put(indata.copy())
+
+    status_callback("音声を待っています……")
+
+    speech_started = False
+    recorded_blocks: list[np.ndarray] = []
+    waiting_started_at = time.monotonic()
+    recording_started_at: float | None = None
+    last_voice_at: float | None = None
+
+    try:
+        with sd.InputStream(
+            device=device_index,
+            samplerate=sample_rate,
+            channels=1,
+            dtype="float32",
+            blocksize=block_size,
+            callback=audio_callback,
+        ):
+            while not stop_event.is_set():
+                try:
+                    block = audio_queue.get(timeout=0.2)
+                except queue.Empty:
+                    continue
+
+                mono_block = block[:, 0]
+                rms = float(
+                    np.sqrt(
+                        np.mean(
+                            np.square(
+                                mono_block.astype(np.float64)
+                            )
+                        )
+                    )
+                )
+                now = time.monotonic()
+
+                if not speech_started:
+                    pre_roll.append(mono_block.copy())
+
+                    if rms >= SPEECH_THRESHOLD:
+                        speech_started = True
+                        recording_started_at = now
+                        last_voice_at = now
+                        recorded_blocks.extend(list(pre_roll))
+                        pre_roll.clear()
+                        status_callback("音声を録音しています……")
+
+                    elif (
+                        now - waiting_started_at
+                        >= WAITING_TIMEOUT_SECONDS
+                    ):
+                        status_callback(
+                            "音声が検出されませんでした。"
+                        )
+                        return None
+
+                else:
+                    recorded_blocks.append(mono_block.copy())
+
+                    if rms >= SPEECH_THRESHOLD:
+                        last_voice_at = now
+
+                    if (
+                        last_voice_at is not None
+                        and now - last_voice_at >= SILENCE_SECONDS
+                    ):
+                        break
+
+                    if (
+                        recording_started_at is not None
+                        and now - recording_started_at
+                        >= MAX_RECORDING_SECONDS
+                    ):
+                        break
+
+    except sd.PortAudioError as error:
+        raise RuntimeError(
+            "マイクを開けませんでした。\\n"
+            "別の入力機器を選択するか、Windowsの"
+            "マイク使用許可を確認してください。\\n\\n"
+            f"詳細: {error}"
+        ) from error
+
+    if stop_event.is_set() or not recorded_blocks:
+        return None
+
+    audio = np.concatenate(recorded_blocks)
+
+    if audio.size == 0:
+        return None
+
+    return convert_float_audio_to_wav(
+        audio=audio,
+        sample_rate=sample_rate,
+    )
+
+
+def transcribe_with_windows_speech(
+    wav_bytes: bytes,
+) -> str:
+    """
+    マイク音声を文字列へ変換する。
+    SpeechRecognition + Google Web Speech APIを利用する。
+    """
+    try:
+        import speech_recognition as sr
+    except ImportError as error:
+        raise RuntimeError(
+            "音声認識ライブラリがありません。\\n"
+            "pip install SpeechRecognition を実行してください。"
+        ) from error
+
+    recognizer = sr.Recognizer()
+
+    with sr.AudioFile(io.BytesIO(wav_bytes)) as source:
+        audio_data = recognizer.record(source)
+
+    try:
+        return recognizer.recognize_google(
+            audio_data,
+            language="ja-JP",
+        ).strip()
+
+    except sr.UnknownValueError:
+        return ""
+
+    except sr.RequestError as error:
+        raise RuntimeError(
+            "音声認識サービスへ接続できませんでした。\\n\\n"
+            f"{error}"
+        ) from error
+
+
 # ============================================================
 # VOICEVOX
 # ============================================================
@@ -550,49 +759,70 @@ def get_latest_ccfolia_message(
     driver: WebDriver,
 ) -> CcfoliaMessage | None:
     """
-    最新発言の「キャラクター名」と「本文」を取得する。
+    初版CcVoiceで動作していた方式を使用する。
 
-    キャラクター名:
-        h6.MuiTypography-subtitle2 の先頭テキストノード
+    ・発言本文:
+        MuiListItemText-secondary の最後の要素
 
-    本文:
-        MuiListItemText-secondary の最新要素
+    ・発言者名:
+        h6.MuiTypography-subtitle2 の最後の要素
+        childNodes[0].textContent のみ取得
+
+    発言本文と発言者名は、それぞれ独立して取得する。
     """
-    name_elements = driver.find_elements(
-        By.CSS_SELECTOR,
-        "h6.MuiTypography-subtitle2",
-    )
 
+    # -------------------------------------------------
+    # 発言本文
+    # 初版CcVoiceと同じ取得方法
+    # -------------------------------------------------
     text_elements = driver.find_elements(
         By.CLASS_NAME,
         "MuiListItemText-secondary",
     )
 
-    if not name_elements or not text_elements:
+    if not text_elements:
         return None
 
-    latest_name_element = name_elements[-1]
     latest_text_element = text_elements[-1]
+    latest_text = latest_text_element.text.strip()
 
-    speaker_name = driver.execute_script(
-        """
-        const node = arguments[0];
-        if (!node || !node.childNodes || node.childNodes.length === 0) {
-            return "";
-        }
-        return (node.childNodes[0].textContent || "").trim();
-        """,
-        latest_name_element,
+    if not latest_text:
+        return None
+
+    # -------------------------------------------------
+    # 発言者名
+    # ユーザー指定どおり、h6タグの最後を参照する
+    # -------------------------------------------------
+    elements = driver.find_elements(
+        By.CSS_SELECTOR,
+        "h6.MuiTypography-subtitle2",
     )
 
-    text = latest_text_element.text.strip()
+    if not elements:
+        # 本文は取得できているため監視自体は止めない。
+        # 発言者不明として返し、ログで確認できるようにする。
+        return CcfoliaMessage(
+            speaker_name="",
+            text=latest_text,
+        )
 
-    if not speaker_name or not text:
-        return None
+    latest_element = elements[-1]
+
+    try:
+        name = driver.execute_script(
+            """
+            return arguments[0].childNodes[0].textContent.trim();
+            """,
+            latest_element,
+        )
+    except Exception:
+        name = ""
+
+    name = str(name or "").strip()
 
     return CcfoliaMessage(
-        speaker_name=str(speaker_name).strip(),
-        text=text,
+        speaker_name=name,
+        text=latest_text,
     )
 
 
@@ -686,6 +916,9 @@ class CcVoiceApp:
         self.output_device_var = tk.StringVar()
 
         self.voice_output_var = tk.BooleanVar(value=True)
+        self.voice_input_var = tk.BooleanVar(value=False)
+        self.voice_input_stop_event = threading.Event()
+        self.voice_input_thread: threading.Thread | None = None
 
         # ユーザー入力へ「」を付ける設定。デフォルトON。
         self.kakko_var = tk.BooleanVar(value=True)
@@ -810,6 +1043,17 @@ class CcVoiceApp:
             columnspan=4,
             sticky="ew",
             pady=(8, 4),
+        )
+
+        self.voice_input_check = ttk.Checkbutton(
+            option_frame,
+            text="音声入力を使用する",
+            variable=self.voice_input_var,
+            command=self.toggle_voice_input,
+        )
+        self.voice_input_check.pack(
+            side=tk.LEFT,
+            padx=(0, 20),
         )
 
         self.voice_output_check = ttk.Checkbutton(
@@ -1069,6 +1313,11 @@ class CcVoiceApp:
             self.output_device_var.get()
         )
 
+    def get_selected_input_device(self) -> int | None:
+        return self.input_name_to_index.get(
+            self.input_device_var.get()
+        )
+
     # --------------------------------------------------------
     # キャラクター設定
     # --------------------------------------------------------
@@ -1151,6 +1400,10 @@ class CcVoiceApp:
                 elif event_name == "log":
                     self.append_log(str(event_data))
 
+                elif event_name == "set_input":
+                    self.input_text.delete("1.0", tk.END)
+                    self.input_text.insert("1.0", str(event_data))
+
                 elif event_name == "error":
                     title, message = event_data
                     messagebox.showerror(title, message)
@@ -1162,6 +1415,133 @@ class CcVoiceApp:
             pass
 
         self.root.after(50, self.process_ui_queue)
+
+    # --------------------------------------------------------
+    # 音声入力
+    # --------------------------------------------------------
+
+    def toggle_voice_input(self) -> None:
+        if self.voice_input_var.get():
+            device_index = self.get_selected_input_device()
+
+            if device_index is None:
+                self.voice_input_var.set(False)
+                messagebox.showerror(
+                    "入力機器エラー",
+                    "使用するマイクを選択してください。",
+                )
+                return
+
+            self.voice_input_stop_event.clear()
+
+            self.voice_input_thread = threading.Thread(
+                target=self.voice_input_worker,
+                args=(device_index,),
+                daemon=True,
+            )
+            self.voice_input_thread.start()
+
+        else:
+            self.voice_input_stop_event.set()
+
+    def voice_input_worker(self, device_index: int) -> None:
+        """
+        チェックがONの間、
+        発話→無音検出→文字起こし→ココフォリア送信を繰り返す。
+        """
+        self.put_log("音声入力を開始しました。")
+
+        try:
+            while (
+                self.voice_input_var.get()
+                and not self.voice_input_stop_event.is_set()
+            ):
+                wav_bytes = record_until_silence(
+                    device_index=device_index,
+                    stop_event=self.voice_input_stop_event,
+                    status_callback=self.put_status,
+                )
+
+                if self.voice_input_stop_event.is_set():
+                    break
+
+                if not wav_bytes:
+                    # 30秒間発話なしなら、ONのまま再待機。
+                    continue
+
+                self.put_status("音声を文字に変換しています……")
+
+                recognized_text = transcribe_with_windows_speech(
+                    wav_bytes
+                )
+
+                if not recognized_text:
+                    self.put_log(
+                        "音声を認識できませんでした。"
+                    )
+                    continue
+
+                self.put_log(
+                    f"音声認識: {recognized_text}"
+                )
+
+                # 入力欄にも認識結果を表示
+                self.ui_queue.put(
+                    ("set_input", recognized_text)
+                )
+
+                output_text = recognized_text
+
+                if self.kakko_var.get():
+                    already_quoted = (
+                        output_text.startswith("「")
+                        and output_text.endswith("」")
+                    )
+                    if not already_quoted:
+                        output_text = f"「{output_text}」"
+
+                driver = self.driver
+
+                if driver is None:
+                    self.put_log(
+                        "ココフォリア未接続のため、"
+                        "音声認識結果は送信しませんでした。"
+                    )
+                    continue
+
+                if send_message_to_ccfolia(
+                    driver,
+                    output_text,
+                ):
+                    self.put_log(
+                        f"音声入力を送信: {output_text}"
+                    )
+                else:
+                    self.put_log(
+                        "音声入力の送信に失敗しました。"
+                    )
+
+        except Exception as error:
+            write_exception_log(
+                "音声入力エラー",
+                error,
+            )
+            self.put_error(
+                "音声入力エラー",
+                str(error),
+            )
+
+        finally:
+            self.voice_input_var.set(False)
+
+            if not self.stop_event.is_set():
+                self.put_status(
+                    "ココフォリアを監視中"
+                    if self.driver is not None
+                    else "準備完了"
+                )
+
+            self.put_log("音声入力を停止しました。")
 
     # --------------------------------------------------------
     # ユーザー発言
@@ -1261,6 +1641,8 @@ class CcVoiceApp:
 
     def stop_monitoring(self) -> None:
         self.stop_event.set()
+        self.voice_input_stop_event.set()
+        self.voice_input_var.set(False)
 
         try:
             sd.stop()
@@ -1271,6 +1653,8 @@ class CcVoiceApp:
 
     def exit_application(self) -> None:
         self.stop_event.set()
+        self.voice_input_stop_event.set()
+        self.voice_input_var.set(False)
 
         try:
             sd.stop()
@@ -1340,8 +1724,14 @@ class CcVoiceApp:
                     # 同じ発言を二重処理しないよう先に保存。
                     before_signature = signature
 
+                    display_name = (
+                        latest.speaker_name
+                        if latest.speaker_name
+                        else "発言者名取得失敗"
+                    )
+
                     self.put_log(
-                        f"{latest.speaker_name}: {latest.text}"
+                        f"{display_name}: {latest.text}"
                     )
 
                     config = self.character_configs.get(
@@ -1349,10 +1739,16 @@ class CcVoiceApp:
                     )
 
                     if config is None:
-                        self.put_log(
-                            f"「{latest.speaker_name}」は登録キャラクターではないため"
-                            "音声出力しません。"
-                        )
+                        if latest.speaker_name:
+                            self.put_log(
+                                f"「{latest.speaker_name}」は登録キャラクターではないため"
+                                "音声出力しません。"
+                            )
+                        else:
+                            self.put_log(
+                                "発言本文は取得できましたが、最後のh6から"
+                                "キャラクター名を取得できなかったため音声出力しません。"
+                            )
                         time.sleep(CHECK_INTERVAL_SECONDS)
                         continue
 
@@ -1499,6 +1895,10 @@ def main() -> None:
 
                 elif event_name == "log":
                     app.append_log(str(event_data))
+
+                elif event_name == "set_input":
+                    app.input_text.delete("1.0", tk.END)
+                    app.input_text.insert("1.0", str(event_data))
 
                 elif event_name == "error":
                     title, message = event_data
